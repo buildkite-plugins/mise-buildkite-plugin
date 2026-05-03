@@ -6,6 +6,7 @@ This plugin is intentionally small:
 
 - `mise` is installed if missing or at the wrong version
 - `mise install` always runs
+- the plugin-managed `mise` binary is added to the command environment `PATH`
 - `mise env --shell bash` is sourced in the hook and appended to `$BUILDKITE_ENV_FILE`
 - tool versions come from the repository, not plugin config
 

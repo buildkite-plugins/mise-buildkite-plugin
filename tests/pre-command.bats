@@ -134,6 +134,7 @@ MOCK
   grep -F "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install" "${MISE_MOCK_LOG}"
   grep -F "env pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} env --shell bash" "${MISE_MOCK_LOG}"
   grep -F "export TEST_ENV=ok" "${BUILDKITE_ENV_FILE}"
+  grep -F "export PATH=${MISE_DATA_DIR}/bin:\$PATH" "${BUILDKITE_ENV_FILE}"
   grep -F "export PATH=\"${MISE_DATA_DIR}/installs/go/1.0.0/bin:\$PATH\"" "${BUILDKITE_ENV_FILE}"
 }
 
@@ -158,12 +159,30 @@ MOCK
     env | grep -Fx 'MISE_TRUSTED_CONFIG_PATHS=${BUILDKITE_BUILD_CHECKOUT_PATH}'
     env | grep -Fx 'MISE_YES=1'
     case \":\$PATH:\" in
+      *\":${MISE_DATA_DIR}/bin:\"*) ;;
+      *) exit 1 ;;
+    esac
+    case \":\$PATH:\" in
       *\":${MISE_DATA_DIR}/installs/go/1.0.0/bin:\"*) ;;
       *) exit 1 ;;
     esac
   "
 
   [ "${status}" -eq 0 ]
+}
+
+@test "puts plugin-managed mise binary on PATH before installed tool paths are exported" {
+  printf 'go 1.0.0\n' > "${BUILDKITE_BUILD_CHECKOUT_PATH}/.tool-versions"
+
+  run bash hooks/pre-command
+
+  [ "${status}" -eq 0 ]
+  path_line="$(grep -n -F "export PATH=${MISE_DATA_DIR}/bin:\$PATH" "${BUILDKITE_ENV_FILE}" | cut -d: -f1)"
+  tool_path_line="$(grep -n -F "export PATH=\"${MISE_DATA_DIR}/installs/go/1.0.0/bin:\$PATH\"" "${BUILDKITE_ENV_FILE}" | cut -d: -f1)"
+
+  [ -n "${path_line}" ]
+  [ -n "${tool_path_line}" ]
+  [ "${path_line}" -lt "${tool_path_line}" ]
 }
 
 @test "uses dir config for monorepos" {
