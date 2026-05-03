@@ -50,6 +50,11 @@ append_export() {
   append_to_buildkite_env "$(printf 'export %s=%q' "$name" "$value")"
 }
 
+append_path_prepend() {
+  local dir="$1"
+  append_to_buildkite_env "$(printf 'export PATH=%q:%s' "$dir" "\$PATH")"
+}
+
 apply_mise_env() {
   local mise_env_file
 
@@ -293,10 +298,12 @@ main() {
   append_export MISE_DATA_DIR "$MISE_DIR"
   append_export MISE_TRUSTED_CONFIG_PATHS "$WORKING_DIRECTORY"
   append_export MISE_YES "1"
+  append_path_prepend "$MISE_BIN"
 
   export MISE_DATA_DIR="$MISE_DIR"
   export MISE_TRUSTED_CONFIG_PATHS="$WORKING_DIRECTORY"
   export MISE_YES="1"
+  export PATH="$MISE_BIN:$PATH"
   apply_mise_env
 
   echo "~~~ :white_check_mark: mise setup complete"
