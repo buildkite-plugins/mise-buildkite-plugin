@@ -17,6 +17,8 @@ setup() {
 
   unset BUILDKITE_PLUGIN_MISE_CACHE_DIR
   unset BUILDKITE_PLUGIN_MISE_DIR
+  unset BUILDKITE_PLUGIN_MISE_INSTALL_ARGS
+  unset BUILDKITE_PLUGIN__INSTALL_ARGS
   unset BUILDKITE_COMPUTE_TYPE
   unset MISE_MOCK_FAIL_INSTALL
   unset MISE_HOSTED_CACHE_VOLUME_ROOT
@@ -209,6 +211,29 @@ MOCK
   [ "${status}" -eq 0 ]
   grep -F "install pwd=${subdir} install" "${MISE_MOCK_LOG}"
   grep -F "env pwd=${subdir} env --shell bash" "${MISE_MOCK_LOG}"
+}
+
+@test "passes install_args to mise install" {
+  printf 'node 24.0.0\npnpm 10.0.0\nruby 3.4.0\n' > "${BUILDKITE_BUILD_CHECKOUT_PATH}/.tool-versions"
+  export BUILDKITE_PLUGIN_MISE_INSTALL_ARGS="node pnpm@10"
+
+  run bash hooks/pre-command
+
+  [ "${status}" -eq 0 ]
+  grep -F "Running mise install with args: node pnpm@10" <<< "${output}"
+  grep -Fx "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install node pnpm@10" "${MISE_MOCK_LOG}"
+  grep -Fx "env pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} env --shell bash" "${MISE_MOCK_LOG}"
+}
+
+@test "uses local plugin install_args config fallback" {
+  printf 'node 24.0.0\npnpm 10.0.0\n' > "${BUILDKITE_BUILD_CHECKOUT_PATH}/.tool-versions"
+  export BUILDKITE_PLUGIN__INSTALL_ARGS="node pnpm"
+
+  run bash hooks/pre-command
+
+  [ "${status}" -eq 0 ]
+  grep -Fx "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install node pnpm" "${MISE_MOCK_LOG}"
+  grep -Fx "env pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} env --shell bash" "${MISE_MOCK_LOG}"
 }
 
 @test "uses cache-dir config when MISE_DATA_DIR is unset" {

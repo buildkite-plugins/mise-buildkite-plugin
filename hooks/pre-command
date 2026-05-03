@@ -252,10 +252,13 @@ ensure_mise_config_present() {
 main() {
   local current_version
   local dir_cfg
+  local install_args_raw
+  local -a install_args=()
   local required_version_raw
 
   required_version_raw="$(plugin_cfg_default version latest)"
   dir_cfg="$(plugin_cfg dir)"
+  install_args_raw="$(plugin_cfg install_args)"
 
   if [ -n "$dir_cfg" ]; then
     WORKING_DIRECTORY="$dir_cfg"
@@ -288,7 +291,13 @@ main() {
   ensure_mise_config_present
 
   run_mise --version
-  run_with_expanded_group_on_failure run_mise install
+  if [ -n "$install_args_raw" ]; then
+    read -r -a install_args <<< "$install_args_raw"
+    echo "Running mise install with args: ${install_args[*]}"
+    run_with_expanded_group_on_failure run_mise install "${install_args[@]}"
+  else
+    run_with_expanded_group_on_failure run_mise install
+  fi
 
   if [ -z "${BUILDKITE_ENV_FILE:-}" ]; then
     echo "BUILDKITE_ENV_FILE is not set" >&2

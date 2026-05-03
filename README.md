@@ -8,7 +8,7 @@ This plugin is intentionally small:
 - `mise install` always runs
 - the plugin-managed `mise` binary is added to the command environment `PATH`
 - `mise env --shell bash` is sourced in the hook and appended to `$BUILDKITE_ENV_FILE`
-- tool versions come from the repository, not plugin config
+- command execution uses the active repository mise config exported by `mise env`
 
 ## Example
 
@@ -16,7 +16,7 @@ This plugin is intentionally small:
 steps:
   - label: ":wrench: Test"
     plugins:
-      - mise#v1.1.1:
+      - mise#v1.1.2:
           version: 2026.2.11
     command: go test ./...
 ```
@@ -27,10 +27,32 @@ steps:
 steps:
   - label: ":wrench: Test backend"
     plugins:
-      - mise#v1.1.1:
+      - mise#v1.1.2:
           dir: backend
     command: go test ./...
 ```
+
+## Install Args
+
+For steps that only need part of a shared mise config, use `install_args` to pass
+arguments directly to `mise install`:
+
+```yml
+steps:
+  - label: ":react: Frontend"
+    plugins:
+      - mise#v1.1.2:
+          install_args: node pnpm
+    command: pnpm test
+```
+
+Bare tool names use versions from the repository config when present. Versioned
+arguments such as `node@24 pnpm@10` are also valid `mise install` arguments,
+but they only affect what gets installed. Later commands still use the
+environment exported by `mise env --shell bash`, so the active versions come
+from the repository mise config. When `install_args` is omitted, the existing
+behavior is preserved: `mise install` runs with no arguments and installs
+everything in the config file.
 
 ## Hosted Agent Cache Volumes
 
@@ -40,7 +62,7 @@ cache: ".buildkite/cache-volume"
 steps:
   - label: ":wrench: Test"
     plugins:
-      - mise#v1.1.1: ~
+      - mise#v1.1.2: ~
     command: go test ./...
 ```
 
@@ -51,6 +73,7 @@ When running on Buildkite hosted agents, the plugin automatically uses `/cache/b
 - `version` (default: `latest`): mise version to install.
 - `dir` (default: checkout directory): directory where `mise install` and `mise env` run.
 - `cache-dir` (default: unset): directory to use for `MISE_DATA_DIR`. This is mainly useful on self-hosted agents with a persistent disk.
+- `install_args` (default: unset): arguments passed directly to `mise install`, such as `node pnpm` or `node@24 pnpm@10`. These are install-only arguments; command execution still uses the environment exported from the repository mise config.
 
 ## Repo Requirements
 
@@ -68,7 +91,7 @@ Run plugin checks locally:
 
 ```bash
 mise install
-docker run --rm -v "$PWD:/plugin" -w /plugin buildkite/plugin-linter --id buildkite/mise --path /plugin
+docker run --rm -v "$PWD:/plugin" -w /plugin buildkite/plugin-linter --id mise --path /plugin
 docker run --rm -v "$PWD:/plugin" -w /plugin buildkite/plugin-tester
 "$(mise where shellcheck@0.11.0)/shellcheck-v0.11.0/shellcheck" hooks/pre-command tests/pre-command.bats
 ```
