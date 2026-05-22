@@ -2,5 +2,20 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Update README Buildkite plugin example versions",
+      "managerFilePatterns": [
+        "/^README\\.md$/"
+      ],
+      "matchStrings": [
+        "-\\s+(?:buildkite-plugins/)?mise#(?<currentValue>v\\d+\\.\\d+\\.\\d+):"
+      ],
+      "depNameTemplate": "buildkite-plugins/mise-buildkite-plugin",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver"
+    }
   ]
 }
