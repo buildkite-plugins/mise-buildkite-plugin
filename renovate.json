@@ -15,7 +15,7 @@
       ],
       "depNameTemplate": "buildkite-plugins/mise-buildkite-plugin",
       "datasourceTemplate": "github-releases",
-      "versioningTemplate": "semver"
+      "versioningTemplate": "semver-coerced"
     }
   ]
 }
