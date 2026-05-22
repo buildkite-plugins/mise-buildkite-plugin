@@ -113,10 +113,12 @@ resolve_mise_dir() {
 detect_platform() {
   local os
   local arch
+  local ldd_output
   local musl_suffix
 
   os=""
   arch=""
+  ldd_output=""
   musl_suffix=""
 
   case "$(uname -s)" in
@@ -149,7 +151,8 @@ detect_platform() {
   esac
 
   if [ "$os" = linux ] && command -v ldd >/dev/null 2>&1; then
-    if ldd --version 2>&1 | grep -qi musl; then
+    ldd_output="$(ldd --version 2>&1 || true)"
+    if [[ "${ldd_output,,}" == *musl* ]]; then
       musl_suffix="-musl"
     fi
   fi

@@ -305,3 +305,41 @@ BROKEN
   # The reinstalled binary must be the working one written by the tar mock.
   "${MISE_DATA_DIR}/bin/mise" --version | grep -F "mise v1.0.0"
 }
+
+@test "downloads musl build when ldd version output exits non-zero" {
+  printf 'go 1.0.0\n' > "${BUILDKITE_BUILD_CHECKOUT_PATH}/.tool-versions"
+  rm -f "${MISE_DATA_DIR}/bin/mise"
+  setup_install_mocks
+
+  cat > "${TEST_TMPDIR}/mock-bin/uname" <<'MOCK'
+#!/usr/bin/env bash
+set -euo pipefail
+
+case "${1:-}" in
+  -s)
+    echo "Linux"
+    ;;
+  -m)
+    echo "x86_64"
+    ;;
+  *)
+    exit 1
+    ;;
+esac
+MOCK
+
+  cat > "${TEST_TMPDIR}/mock-bin/ldd" <<'MOCK'
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "musl libc (x86_64)"
+exit 1
+MOCK
+
+  chmod +x "${TEST_TMPDIR}/mock-bin/uname" "${TEST_TMPDIR}/mock-bin/ldd"
+
+  run bash hooks/pre-command
+
+  [ "${status}" -eq 0 ]
+  grep -F "Downloading mise v1.0.0 for linux-x64-musl" <<< "${output}"
+}
