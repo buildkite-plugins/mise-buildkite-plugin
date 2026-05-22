@@ -17,3 +17,6 @@ configuration:
     cache-dir:
       type: string
       description: Directory to use for `MISE_DATA_DIR`. Useful for persistent caches on self-hosted agents.
+    install_args:
+      type: string
+      description: Arguments to pass to `mise install` (for example, node pnpm or node@24 pnpm@10). These are install-only arguments; command execution still uses the environment exported from the repository mise config.
