@@ -173,6 +173,7 @@ installed_version() {
   # similar), return empty so the caller reinstalls rather than failing
   # the whole hook under set -e/pipefail.
   if ! output="$("$MISE_BINARY" --version 2>/dev/null)"; then
+    echo "Cached mise binary at $MISE_BINARY failed to execute; reinstalling." >&2
     return
   fi
 
