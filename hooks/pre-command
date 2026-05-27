@@ -162,11 +162,22 @@ latest_version() {
 }
 
 installed_version() {
+  local output
+
   if [ ! -x "$MISE_BINARY" ]; then
     return
   fi
 
-  "$MISE_BINARY" --version 2>/dev/null | awk '{print $2}' | tr -d 'v'
+  # If the cached binary fails to report a version (e.g. corrupt cache,
+  # wrong arch, permission issues — anything that causes exit 126/127 or
+  # similar), return empty so the caller reinstalls rather than failing
+  # the whole hook under set -e/pipefail.
+  if ! output="$("$MISE_BINARY" --version 2>/dev/null)"; then
+    echo "Cached mise binary at $MISE_BINARY failed to execute; reinstalling." >&2
+    return
+  fi
+
+  printf '%s\n' "$output" | awk '{print $2}' | tr -d 'v'
 }
 
 install_mise() {

@@ -283,3 +283,25 @@ MOCK
   [ -x "${MISE_DATA_DIR}/bin/mise" ]
   [[ "${output}" != *"archive: unbound variable"* ]]
 }
+
+@test "reinstalls mise when the cached binary cannot execute" {
+  printf 'go 1.0.0\n' > "${BUILDKITE_BUILD_CHECKOUT_PATH}/.tool-versions"
+
+  # Simulate a corrupt cached binary that exits 126 ("command invoked
+  # cannot execute") whenever it's run — e.g. arch mismatch, partial
+  # download, or a permissions issue with a binfmt handler.
+  cat > "${MISE_DATA_DIR}/bin/mise" <<'BROKEN'
+#!/usr/bin/env bash
+exit 126
+BROKEN
+  chmod +x "${MISE_DATA_DIR}/bin/mise"
+
+  setup_install_mocks
+
+  run bash hooks/pre-command
+
+  [ "${status}" -eq 0 ]
+  grep -F "Downloading mise v1.0.0" <<< "${output}"
+  # The reinstalled binary must be the working one written by the tar mock.
+  "${MISE_DATA_DIR}/bin/mise" --version | grep -F "mise v1.0.0"
+}
