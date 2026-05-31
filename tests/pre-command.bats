@@ -20,6 +20,7 @@ setup() {
   unset BUILDKITE_PLUGIN_MISE_INSTALL_ARGS
   unset BUILDKITE_PLUGIN__INSTALL_ARGS
   unset BUILDKITE_COMPUTE_TYPE
+  unset MISE_MOCK_FAIL_VERSION
   unset MISE_MOCK_FAIL_INSTALL
   unset MISE_HOSTED_CACHE_VOLUME_ROOT
 }
@@ -38,6 +39,9 @@ cmd="${1:-}"
 
 case "${cmd}" in
   --version|version)
+    if [ -n "${MISE_MOCK_FAIL_VERSION:-}" ]; then
+      exit "${MISE_MOCK_FAIL_VERSION}"
+    fi
     echo "mise v1.0.0"
     ;;
   install)
@@ -304,4 +308,16 @@ BROKEN
   grep -F "Downloading mise v1.0.0" <<< "${output}"
   # The reinstalled binary must be the working one written by the tar mock.
   "${MISE_DATA_DIR}/bin/mise" --version | grep -F "mise v1.0.0"
+}
+
+@test "describes SIGSEGV when a cached binary crashes during version check" {
+  printf 'go 1.0.0\n' > "${BUILDKITE_BUILD_CHECKOUT_PATH}/.tool-versions"
+  export MISE_MOCK_FAIL_VERSION="139"
+  setup_install_mocks
+
+  run bash hooks/pre-command
+
+  [ "${status}" -eq 0 ]
+  grep -F "Cached mise binary at ${MISE_DATA_DIR}/bin/mise failed to execute with status 139 (SIGSEGV); reinstalling." <<< "${output}"
+  grep -F "Downloading mise v1.0.0" <<< "${output}"
 }

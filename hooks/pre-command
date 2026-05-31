@@ -161,8 +161,22 @@ latest_version() {
   curl -fsSL https://mise.jdx.dev/VERSION | tr -d '\r\n'
 }
 
+describe_exit_status() {
+  local exit_code="$1"
+
+  case "$exit_code" in
+    139)
+      printf 'status 139 (SIGSEGV)'
+      ;;
+    *)
+      printf 'status %s' "$exit_code"
+      ;;
+  esac
+}
+
 installed_version() {
   local output
+  local status
 
   if [ ! -x "$MISE_BINARY" ]; then
     return
@@ -172,12 +186,13 @@ installed_version() {
   # wrong arch, permission issues — anything that causes exit 126/127 or
   # similar), return empty so the caller reinstalls rather than failing
   # the whole hook under set -e/pipefail.
-  if ! output="$("$MISE_BINARY" --version 2>/dev/null)"; then
-    echo "Cached mise binary at $MISE_BINARY failed to execute; reinstalling." >&2
+  if output="$("$MISE_BINARY" --version 2>/dev/null)"; then
+    printf '%s\n' "$output" | awk '{print $2}' | tr -d 'v'
+  else
+    status=$?
+    echo "Cached mise binary at $MISE_BINARY failed to execute with $(describe_exit_status "$status"); reinstalling." >&2
     return
   fi
-
-  printf '%s\n' "$output" | awk '{print $2}' | tr -d 'v'
 }
 
 install_mise() {
