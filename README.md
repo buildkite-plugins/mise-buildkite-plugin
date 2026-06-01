@@ -16,7 +16,7 @@ This plugin is intentionally small:
 steps:
   - label: ":wrench: Test"
     plugins:
-      - mise#v1.1.2:
+      - mise#v1.1.3.:
           version: 2026.2.11
     command: go test ./...
 ```
@@ -27,7 +27,7 @@ steps:
 steps:
   - label: ":wrench: Test backend"
     plugins:
-      - mise#v1.1.2:
+      - mise#v1.1.3.:
           dir: backend
     command: go test ./...
 ```
@@ -41,7 +41,7 @@ arguments directly to `mise install`:
 steps:
   - label: ":react: Frontend"
     plugins:
-      - mise#v1.1.2:
+      - mise#v1.1.3.:
           install_args: node pnpm
     command: pnpm test
 ```
@@ -62,7 +62,7 @@ cache: ".buildkite/cache-volume"
 steps:
   - label: ":wrench: Test"
     plugins:
-      - mise#v1.1.2: ~
+      - mise#v1.1.3.: ~
     command: go test ./...
 ```
 
