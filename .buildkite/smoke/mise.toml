@@ -6,4 +6,4 @@ legacy_version_file = false
 go = "1.26.3"
 
 [system.packages]
-"apt:jq" = "latest"
+"apt:figlet" = "latest"
