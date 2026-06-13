@@ -51,7 +51,7 @@ case "${cmd}" in
     ;;
   system)
     if [ "${2:-}" = "install" ] && [ "${3:-}" = "--yes" ]; then
-      echo "system pwd=${PWD} $*" >> "${log_file}"
+      echo "system pwd=${PWD} experimental=${MISE_EXPERIMENTAL:-} $*" >> "${log_file}"
     else
       echo "unexpected system command: $*" >&2
       exit 1
@@ -243,10 +243,10 @@ MOCK
 
   [ "${status}" -eq 0 ]
   grep -F "Running mise system install --yes" <<< "${output}"
-  grep -Fx "system pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} system install --yes" "${MISE_MOCK_LOG}"
+  grep -Fx "system pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} experimental=1 system install --yes" "${MISE_MOCK_LOG}"
   grep -Fx "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install" "${MISE_MOCK_LOG}"
 
-  system_line="$(grep -n -F "system pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} system install --yes" "${MISE_MOCK_LOG}" | cut -d: -f1)"
+  system_line="$(grep -n -F "system pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} experimental=1 system install --yes" "${MISE_MOCK_LOG}" | cut -d: -f1)"
   install_line="$(grep -n -F "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install" "${MISE_MOCK_LOG}" | cut -d: -f1)"
 
   [ "${system_line}" -lt "${install_line}" ]
@@ -259,7 +259,7 @@ MOCK
   run bash hooks/pre-command
 
   [ "${status}" -eq 0 ]
-  grep -Fx "system pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} system install --yes" "${MISE_MOCK_LOG}"
+  grep -Fx "system pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} experimental=1 system install --yes" "${MISE_MOCK_LOG}"
 }
 
 @test "uses local plugin install_args config fallback" {

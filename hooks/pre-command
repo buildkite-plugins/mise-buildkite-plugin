@@ -328,7 +328,7 @@ main() {
   run_mise --version
   if truthy_plugin_cfg install_system_packages; then
     echo "Running mise system install --yes"
-    run_with_expanded_group_on_failure run_mise system install --yes
+    MISE_EXPERIMENTAL=1 run_with_expanded_group_on_failure run_mise system install --yes
   fi
 
   if [ -n "$install_args_raw" ]; then

@@ -75,10 +75,10 @@ steps:
     command: go test ./...
 ```
 
-When enabled, the hook runs `mise system install --yes` before the normal
-`mise install`. On CI containers that run as root this installs without prompts;
-on non-root Linux agents, mise may use `sudo` according to its normal system
-package behavior.
+When enabled, the hook runs `mise system install --yes` with `MISE_EXPERIMENTAL=1`
+before the normal `mise install`. On CI containers that run as root this
+installs without prompts; on non-root Linux agents, mise may use `sudo`
+according to its normal system package behavior.
 
 ## Hosted Agent Cache Volumes
 
