@@ -4,3 +4,6 @@ legacy_version_file = false
 
 [tools]
 go = "1.26.3"
+
+[system.packages]
+"apt:figlet" = "latest"

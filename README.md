@@ -6,6 +6,7 @@ This plugin is intentionally small:
 
 - `mise` is installed if missing or at the wrong version
 - `mise install` always runs
+- `mise system install --yes` can run before `mise install` when explicitly enabled
 - the plugin-managed `mise` binary is added to the command environment `PATH`
 - `mise env --shell bash` is sourced in the hook and appended to `$BUILDKITE_ENV_FILE`
 - command execution uses the active repository mise config exported by `mise env`
@@ -54,6 +55,31 @@ from the repository mise config. When `install_args` is omitted, the existing
 behavior is preserved: `mise install` runs with no arguments and installs
 everything in the config file.
 
+## System Packages
+
+mise can install machine-global packages declared in `[system.packages]` with
+`mise system install --yes`. This plugin keeps that behavior opt-in because
+system packages can mutate the agent host or container.
+
+```toml
+[system.packages]
+"apt:libssl-dev" = "latest"
+```
+
+```yml
+steps:
+  - label: ":wrench: Test"
+    plugins:
+      - mise#v1.1.3:
+          install_system_packages: true
+    command: go test ./...
+```
+
+When enabled, the hook runs `mise system install --yes` with `MISE_EXPERIMENTAL=1`
+before the normal `mise install`. On CI containers that run as root this
+installs without prompts; on non-root Linux agents, mise may use `sudo`
+according to its normal system package behavior.
+
 ## Hosted Agent Cache Volumes
 
 ```yml
@@ -74,6 +100,7 @@ When running on Buildkite hosted agents, the plugin automatically uses `/cache/b
 - `dir` (default: checkout directory): directory where `mise install` and `mise env` run.
 - `cache-dir` (default: unset): directory to use for `MISE_DATA_DIR`. This is mainly useful on self-hosted agents with a persistent disk.
 - `install_args` (default: unset): arguments passed directly to `mise install`, such as `node pnpm` or `node@24 pnpm@10`. These are install-only arguments; command execution still uses the environment exported from the repository mise config.
+- `install_system_packages` (default: `false`): run `mise system install --yes` before `mise install`.
 
 ## Repo Requirements
 

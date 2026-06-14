@@ -18,7 +18,9 @@ setup() {
   unset BUILDKITE_PLUGIN_MISE_CACHE_DIR
   unset BUILDKITE_PLUGIN_MISE_DIR
   unset BUILDKITE_PLUGIN_MISE_INSTALL_ARGS
+  unset BUILDKITE_PLUGIN_MISE_INSTALL_SYSTEM_PACKAGES
   unset BUILDKITE_PLUGIN__INSTALL_ARGS
+  unset BUILDKITE_PLUGIN__INSTALL_SYSTEM_PACKAGES
   unset BUILDKITE_COMPUTE_TYPE
   unset MISE_MOCK_FAIL_INSTALL
   unset MISE_HOSTED_CACHE_VOLUME_ROOT
@@ -46,6 +48,14 @@ case "${cmd}" in
       exit 42
     fi
     echo "install pwd=${PWD} $*" >> "${log_file}"
+    ;;
+  system)
+    if [ "${2:-}" = "install" ] && [ "${3:-}" = "--yes" ]; then
+      echo "system pwd=${PWD} experimental=${MISE_EXPERIMENTAL:-} $*" >> "${log_file}"
+    else
+      echo "unexpected system command: $*" >&2
+      exit 1
+    fi
     ;;
   env)
     if [ "${2:-}" = "--shell" ] && [ "${3:-}" = "bash" ]; then
@@ -223,6 +233,33 @@ MOCK
   grep -F "Running mise install with args: node pnpm@10" <<< "${output}"
   grep -Fx "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install node pnpm@10" "${MISE_MOCK_LOG}"
   grep -Fx "env pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} env --shell bash" "${MISE_MOCK_LOG}"
+}
+
+@test "installs system packages before mise install when enabled" {
+  printf '[tools]\ngo = "1.0.0"\n\n[system.packages]\n"apt:libssl-dev" = "latest"\n' > "${BUILDKITE_BUILD_CHECKOUT_PATH}/mise.toml"
+  export BUILDKITE_PLUGIN_MISE_INSTALL_SYSTEM_PACKAGES="true"
+
+  run bash hooks/pre-command
+
+  [ "${status}" -eq 0 ]
+  grep -F "Running mise system install --yes" <<< "${output}"
+  grep -Fx "system pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} experimental=1 system install --yes" "${MISE_MOCK_LOG}"
+  grep -Fx "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install" "${MISE_MOCK_LOG}"
+
+  system_line="$(grep -n -F "system pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} experimental=1 system install --yes" "${MISE_MOCK_LOG}" | cut -d: -f1)"
+  install_line="$(grep -n -F "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install" "${MISE_MOCK_LOG}" | cut -d: -f1)"
+
+  [ "${system_line}" -lt "${install_line}" ]
+}
+
+@test "uses local plugin install_system_packages config fallback" {
+  printf '[tools]\ngo = "1.0.0"\n\n[system.packages]\n"apt:libssl-dev" = "latest"\n' > "${BUILDKITE_BUILD_CHECKOUT_PATH}/mise.toml"
+  export BUILDKITE_PLUGIN__INSTALL_SYSTEM_PACKAGES="true"
+
+  run bash hooks/pre-command
+
+  [ "${status}" -eq 0 ]
+  grep -Fx "system pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} experimental=1 system install --yes" "${MISE_MOCK_LOG}"
 }
 
 @test "uses local plugin install_args config fallback" {

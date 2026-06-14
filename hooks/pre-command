@@ -55,6 +55,27 @@ append_path_prepend() {
   append_to_buildkite_env "$(printf 'export PATH=%q:%s' "$dir" "\$PATH")"
 }
 
+truthy_plugin_cfg() {
+  local key="$1"
+  local value
+
+  value="$(plugin_cfg "$key")"
+  value="$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]')"
+
+  case "$value" in
+    ""|0|false|no|off)
+      return 1
+      ;;
+    1|true|yes|on)
+      return 0
+      ;;
+    *)
+      echo "Invalid boolean value for ${key}: ${value}" >&2
+      exit 1
+      ;;
+  esac
+}
+
 apply_mise_env() {
   local mise_env_file
 
@@ -305,6 +326,11 @@ main() {
   ensure_mise_config_present
 
   run_mise --version
+  if truthy_plugin_cfg install_system_packages; then
+    echo "Running mise system install --yes"
+    MISE_EXPERIMENTAL=1 run_with_expanded_group_on_failure run_mise system install --yes
+  fi
+
   if [ -n "$install_args_raw" ]; then
     read -r -a install_args <<< "$install_args_raw"
     echo "Running mise install with args: ${install_args[*]}"
