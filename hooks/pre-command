@@ -89,7 +89,7 @@ apply_mise_env() {
 }
 
 cleanup_install_mise() {
-  rm -f "$1"
+  rm -f "$1" "${3:-}"
   rm -rf "$2"
 }
 
@@ -209,29 +209,37 @@ install_mise() {
   local platform="$2"
   local archive
   local extracted
+  local staged
   local url
 
   url="https://github.com/jdx/mise/releases/download/v${version}/mise-v${version}-${platform}.tar.gz"
   archive="$(mktemp)"
   extracted="$(mktemp -d)"
+  staged=""
   echo "Downloading mise v${version} for ${platform}"
 
   (
     set -euo pipefail
-    trap 'cleanup_install_mise "$archive" "$extracted"' EXIT
+    trap 'cleanup_install_mise "$archive" "$extracted" "${staged:-}"' EXIT
 
     curl -fsSL "$url" > "$archive"
     tar -xzf "$archive" -C "$extracted"
 
+    # Keep the staged binary beside its destination so the final rename is atomic.
     mkdir -p "$MISE_BIN"
+    staged="$(mktemp "${MISE_BIN}/.mise.XXXXXX")"
     if [ -x "$extracted/mise/bin/mise" ]; then
-      mv "$extracted/mise/bin/mise" "$MISE_BINARY"
+      cp "$extracted/mise/bin/mise" "$staged"
     elif [ -x "$extracted/bin/mise" ]; then
-      mv "$extracted/bin/mise" "$MISE_BINARY"
+      cp "$extracted/bin/mise" "$staged"
     else
       echo "Could not find mise binary in ${url}" >&2
       exit 1
     fi
+
+    chmod 0755 "$staged"
+    mv -f "$staged" "$MISE_BINARY"
+    staged=""
   )
 }
 

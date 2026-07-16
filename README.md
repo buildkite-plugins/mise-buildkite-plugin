@@ -17,7 +17,7 @@ This plugin is intentionally small:
 steps:
   - label: ":wrench: Test"
     plugins:
-      - mise#v1.1.3:
+      - mise#v1.1.4:
           version: 2026.2.11
     command: go test ./...
 ```
@@ -28,7 +28,7 @@ steps:
 steps:
   - label: ":wrench: Test backend"
     plugins:
-      - mise#v1.1.3:
+      - mise#v1.1.4:
           dir: backend
     command: go test ./...
 ```
@@ -42,7 +42,7 @@ arguments directly to `mise install`:
 steps:
   - label: ":react: Frontend"
     plugins:
-      - mise#v1.1.3:
+      - mise#v1.1.4:
           install_args: node pnpm
     command: pnpm test
 ```
@@ -70,7 +70,7 @@ system packages can mutate the agent host or container.
 steps:
   - label: ":wrench: Test"
     plugins:
-      - mise#v1.1.3:
+      - mise#v1.1.4:
           install_system_packages: true
     command: go test ./...
 ```
@@ -88,11 +88,22 @@ cache: ".buildkite/cache-volume"
 steps:
   - label: ":wrench: Test"
     plugins:
-      - mise#v1.1.3: ~
+      - mise#v1.1.4: ~
     command: go test ./...
 ```
 
 When running on Buildkite hosted agents, the plugin automatically uses `/cache/bkcache/mise` as `MISE_DATA_DIR` if a cache volume is attached. Buildkite only mounts that volume when the pipeline or step defines `cache`, so you still need to request one in `pipeline.yml`.
+
+## Concurrent Jobs
+
+Jobs using the same mise version can safely bootstrap the plugin-managed binary
+in a shared `MISE_DATA_DIR`. Downloads are staged there and moved into place
+atomically.
+
+There is still only one mise binary at `$MISE_DATA_DIR/bin/mise`. Jobs using
+different versions can replace it while another job is running. The plugin
+doesn't lock `mise install`, either, so concurrent tool installs depend on mise
+and the tool backend. Use separate data directories if you need isolation.
 
 ## Configuration
 
