@@ -17,7 +17,7 @@ This plugin is intentionally small:
 steps:
   - label: ":wrench: Test"
     plugins:
-      - mise#v1.1.4:
+      - mise#v1.1.5:
           version: 2026.2.11
     command: go test ./...
 ```
@@ -28,7 +28,7 @@ steps:
 steps:
   - label: ":wrench: Test backend"
     plugins:
-      - mise#v1.1.4:
+      - mise#v1.1.5:
           dir: backend
     command: go test ./...
 ```
@@ -42,7 +42,7 @@ arguments directly to `mise install`:
 steps:
   - label: ":react: Frontend"
     plugins:
-      - mise#v1.1.4:
+      - mise#v1.1.5:
           install_args: node pnpm
     command: pnpm test
 ```
@@ -70,7 +70,7 @@ system packages can mutate the agent host or container.
 steps:
   - label: ":wrench: Test"
     plugins:
-      - mise#v1.1.4:
+      - mise#v1.1.5:
           install_system_packages: true
     command: go test ./...
 ```
@@ -88,7 +88,7 @@ cache: ".buildkite/cache-volume"
 steps:
   - label: ":wrench: Test"
     plugins:
-      - mise#v1.1.4: ~
+      - mise#v1.1.5: ~
     command: go test ./...
 ```
 
