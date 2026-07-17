@@ -22,6 +22,8 @@ setup() {
   unset BUILDKITE_PLUGIN__INSTALL_ARGS
   unset BUILDKITE_PLUGIN__INSTALL_SYSTEM_PACKAGES
   unset BUILDKITE_COMPUTE_TYPE
+  unset MISE_INSTALL_BARRIER_COUNT
+  unset MISE_INSTALL_BARRIER_DIR
   unset MISE_MOCK_FAIL_INSTALL
   unset MISE_HOSTED_CACHE_VOLUME_ROOT
 }
@@ -80,6 +82,11 @@ teardown() {
 }
 
 setup_install_mocks() {
+  export MISE_REAL_MV
+  MISE_REAL_MV="$(command -v mv)"
+  export MISE_MOCK_MV_LOG="${TEST_TMPDIR}/mv.log"
+  : > "${MISE_MOCK_MV_LOG}"
+
   mkdir -p "${TEST_TMPDIR}/mock-bin"
   export PATH="${TEST_TMPDIR}/mock-bin:${PATH}"
 
@@ -105,6 +112,26 @@ while [ "$#" -gt 0 ]; do
       ;;
   esac
 done
+
+if [ -n "${MISE_INSTALL_BARRIER_COUNT:-}" ]; then
+  barrier_dir="${MISE_INSTALL_BARRIER_DIR:?}"
+  marker="${barrier_dir}/ready.$$"
+  : > "${marker}"
+
+  attempts=0
+  while true; do
+    ready_count="$(find "${barrier_dir}" -type f -name 'ready.*' | wc -l | tr -d '[:space:]')"
+    if [ "${ready_count}" -ge "${MISE_INSTALL_BARRIER_COUNT}" ]; then
+      break
+    fi
+    attempts=$((attempts + 1))
+    if [ "${attempts}" -ge 200 ]; then
+      echo "timed out waiting for concurrent installs" >&2
+      exit 1
+    fi
+    sleep 0.05
+  done
+fi
 
 mkdir -p "${dest}/mise/bin"
 cat > "${dest}/mise/bin/mise" <<'INNER'
@@ -133,7 +160,15 @@ INNER
 chmod +x "${dest}/mise/bin/mise"
 MOCK
 
-  chmod +x "${TEST_TMPDIR}/mock-bin/curl" "${TEST_TMPDIR}/mock-bin/tar"
+  cat > "${TEST_TMPDIR}/mock-bin/mv" <<'MOCK'
+#!/usr/bin/env bash
+set -euo pipefail
+
+printf '%s\n' "$*" >> "${MISE_MOCK_MV_LOG:?}"
+exec "${MISE_REAL_MV:?}" "$@"
+MOCK
+
+  chmod +x "${TEST_TMPDIR}/mock-bin/curl" "${TEST_TMPDIR}/mock-bin/tar" "${TEST_TMPDIR}/mock-bin/mv"
 }
 
 @test "runs install and exports shell environment from repo config" {
@@ -148,6 +183,16 @@ MOCK
   grep -F "export TEST_ENV=ok" "${BUILDKITE_ENV_FILE}"
   grep -F "export PATH=${MISE_DATA_DIR}/bin:\$PATH" "${BUILDKITE_ENV_FILE}"
   grep -F "export PATH=\"${MISE_DATA_DIR}/installs/go/1.0.0/bin:\$PATH\"" "${BUILDKITE_ENV_FILE}"
+}
+
+@test "reuses cached mise without downloading" {
+  printf 'go 1.0.0\n' > "${BUILDKITE_BUILD_CHECKOUT_PATH}/.tool-versions"
+
+  run bash hooks/pre-command
+
+  [ "${status}" -eq 0 ]
+  [[ "${output}" != *"Downloading mise"* ]]
+  "${MISE_DATA_DIR}/bin/mise" --version | grep -F "mise v1.0.0"
 }
 
 @test "expands the setup log group when mise install fails" {
@@ -319,6 +364,46 @@ MOCK
   [ "${status}" -eq 0 ]
   [ -x "${MISE_DATA_DIR}/bin/mise" ]
   [[ "${output}" != *"archive: unbound variable"* ]]
+}
+
+@test "installs mise safely from five concurrent hooks" {
+  local i
+  local pid
+  local publish_count
+  local ready_count
+  local staged_count
+  local -a pids=()
+
+  printf 'go 1.0.0\n' > "${BUILDKITE_BUILD_CHECKOUT_PATH}/.tool-versions"
+  rm -f "${MISE_DATA_DIR}/bin/mise"
+  setup_install_mocks
+
+  export MISE_INSTALL_BARRIER_COUNT=5
+  export MISE_INSTALL_BARRIER_DIR="${TEST_TMPDIR}/install-barrier"
+  mkdir -p "${MISE_INSTALL_BARRIER_DIR}"
+
+  for i in 1 2 3 4 5; do
+    (
+      export BUILDKITE_ENV_FILE="${TEST_TMPDIR}/env.${i}"
+      export MISE_MOCK_LOG="${TEST_TMPDIR}/mise.${i}.log"
+      bash hooks/pre-command > "${TEST_TMPDIR}/output.${i}" 2>&1
+    ) &
+    pids+=("$!")
+  done
+
+  for pid in "${pids[@]}"; do
+    wait "${pid}"
+  done
+
+  ready_count="$(find "${MISE_INSTALL_BARRIER_DIR}" -type f -name 'ready.*' | wc -l | tr -d '[:space:]')"
+  [ "${ready_count}" -eq 5 ]
+  [ -x "${MISE_DATA_DIR}/bin/mise" ]
+  "${MISE_DATA_DIR}/bin/mise" --version | grep -F "mise v1.0.0"
+
+  publish_count="$(grep -Fc -- "-f ${MISE_DATA_DIR}/bin/.mise." "${MISE_MOCK_MV_LOG}")"
+  [ "${publish_count}" -eq 5 ]
+  staged_count="$(find "${MISE_DATA_DIR}/bin" -type f -name '.mise.*' | wc -l | tr -d '[:space:]')"
+  [ "${staged_count}" -eq 0 ]
 }
 
 @test "reinstalls mise when the cached binary cannot execute" {
