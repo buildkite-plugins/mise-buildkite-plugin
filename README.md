@@ -55,6 +55,23 @@ from the repository mise config. When `install_args` is omitted, the existing
 behavior is preserved: `mise install` runs with no arguments and installs
 everything in the config file.
 
+## Disable Tools
+
+Use `disable_tools` to ignore tools from the repository mise config for a step.
+The plugin sets mise's comma-separated `MISE_DISABLE_TOOLS` environment variable
+for installation, environment generation, and command execution.
+
+```yml
+steps:
+  - label: ":go: Test"
+    plugins:
+      - mise#v1.1.4:
+          disable_tools:
+            - node
+            - python
+    command: go test ./...
+```
+
 ## System Packages
 
 mise can install machine-global packages declared in `[system.packages]` with
@@ -111,6 +128,7 @@ and the tool backend. Use separate data directories if you need isolation.
 - `dir` (default: checkout directory): directory where `mise install` and `mise env` run.
 - `cache-dir` (default: unset): directory to use for `MISE_DATA_DIR`. This is mainly useful on self-hosted agents with a persistent disk.
 - `install_args` (default: unset): arguments passed directly to `mise install`, such as `node pnpm` or `node@24 pnpm@10`. These are install-only arguments; command execution still uses the environment exported from the repository mise config.
+- `disable_tools` (default: unset): array of tools from the repository mise config to ignore. Sets `MISE_DISABLE_TOOLS` as a comma-separated list.
 - `install_system_packages` (default: `false`): run `mise system install --yes` before `mise install`.
 
 ## Repo Requirements

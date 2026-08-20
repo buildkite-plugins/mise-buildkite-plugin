@@ -20,6 +20,12 @@ configuration:
     install_args:
       type: string
       description: Arguments to pass to `mise install` (for example, node pnpm or node@24 pnpm@10). These are install-only arguments; command execution still uses the environment exported from the repository mise config.
+    disable_tools:
+      type: array
+      items:
+        type: string
+        minLength: 1
+      description: Tools from the repository mise config to ignore. Sets `MISE_DISABLE_TOOLS` as a comma-separated list.
     install_system_packages:
       type: boolean
       default: false

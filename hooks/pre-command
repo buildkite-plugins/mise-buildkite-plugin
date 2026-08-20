@@ -32,6 +32,38 @@ plugin_cfg_default() {
   fi
 }
 
+plugin_cfg_array_csv() {
+  local index
+  local key
+  local normalized_key
+  local prefix
+  local var_name
+  local -a values=()
+
+  key="$1"
+  normalized_key="$(printf '%s' "$key" | tr '[:lower:]' '[:upper:]' | tr '-' '_')"
+  prefix="BUILDKITE_PLUGIN_MISE_${normalized_key}"
+  var_name="${prefix}_0"
+  if [ -z "${!var_name:-}" ]; then
+    prefix="BUILDKITE_PLUGIN__${normalized_key}"
+  fi
+
+  index=0
+  while true; do
+    var_name="${prefix}_${index}"
+    if [ -z "${!var_name:-}" ]; then
+      break
+    fi
+    values+=("${!var_name}")
+    index=$((index + 1))
+  done
+
+  if [ "${#values[@]}" -gt 0 ]; then
+    local IFS=,
+    printf '%s' "${values[*]}"
+  fi
+}
+
 require_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
     echo "Required command missing: $1" >&2
@@ -295,13 +327,19 @@ ensure_mise_config_present() {
 main() {
   local current_version
   local dir_cfg
+  local disable_tools
   local install_args_raw
   local -a install_args=()
   local required_version_raw
 
   required_version_raw="$(plugin_cfg_default version latest)"
   dir_cfg="$(plugin_cfg dir)"
+  disable_tools="$(plugin_cfg_array_csv disable_tools)"
   install_args_raw="$(plugin_cfg install_args)"
+
+  if [ -n "$disable_tools" ]; then
+    export MISE_DISABLE_TOOLS="$disable_tools"
+  fi
 
   if [ -n "$dir_cfg" ]; then
     WORKING_DIRECTORY="$dir_cfg"
@@ -356,6 +394,9 @@ main() {
   append_export MISE_TRUSTED_CONFIG_PATHS "$WORKING_DIRECTORY"
   append_export MISE_YES "1"
   append_path_prepend "$MISE_BIN"
+  if [ -n "$disable_tools" ]; then
+    append_export MISE_DISABLE_TOOLS "$disable_tools"
+  fi
 
   export MISE_DATA_DIR="$MISE_DIR"
   export MISE_TRUSTED_CONFIG_PATHS="$WORKING_DIRECTORY"
