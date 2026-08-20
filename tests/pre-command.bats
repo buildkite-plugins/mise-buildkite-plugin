@@ -17,8 +17,12 @@ setup() {
 
   unset BUILDKITE_PLUGIN_MISE_CACHE_DIR
   unset BUILDKITE_PLUGIN_MISE_DIR
+  unset BUILDKITE_PLUGIN_MISE_DISABLE_TOOLS_0
+  unset BUILDKITE_PLUGIN_MISE_DISABLE_TOOLS_1
   unset BUILDKITE_PLUGIN_MISE_INSTALL_ARGS
   unset BUILDKITE_PLUGIN_MISE_INSTALL_SYSTEM_PACKAGES
+  unset BUILDKITE_PLUGIN__DISABLE_TOOLS_0
+  unset BUILDKITE_PLUGIN__DISABLE_TOOLS_1
   unset BUILDKITE_PLUGIN__INSTALL_ARGS
   unset BUILDKITE_PLUGIN__INSTALL_SYSTEM_PACKAGES
   unset BUILDKITE_COMPUTE_TYPE
@@ -26,6 +30,7 @@ setup() {
   unset MISE_INSTALL_BARRIER_DIR
   unset MISE_MOCK_FAIL_INSTALL
   unset MISE_HOSTED_CACHE_VOLUME_ROOT
+  unset MISE_DISABLE_TOOLS
 }
 
 write_mise_mock() {
@@ -49,7 +54,7 @@ case "${cmd}" in
       echo "mock install failed" >&2
       exit 42
     fi
-    echo "install pwd=${PWD} $*" >> "${log_file}"
+    echo "install pwd=${PWD} disabled=${MISE_DISABLE_TOOLS:-} $*" >> "${log_file}"
     ;;
   system)
     if [ "${2:-}" = "install" ] && [ "${3:-}" = "--yes" ]; then
@@ -63,7 +68,7 @@ case "${cmd}" in
     if [ "${2:-}" = "--shell" ] && [ "${3:-}" = "bash" ]; then
       echo "export TEST_ENV=ok"
       echo "export PATH=\"${MISE_DATA_DIR}/installs/go/1.0.0/bin:\$PATH\""
-      echo "env pwd=${PWD} $*" >> "${log_file}"
+      echo "env pwd=${PWD} disabled=${MISE_DISABLE_TOOLS:-} $*" >> "${log_file}"
     else
       exit 1
     fi
@@ -178,8 +183,8 @@ MOCK
 
   [ "${status}" -eq 0 ]
   grep -F "~~~ :mise: Setup mise" <<< "${output}"
-  grep -F "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install" "${MISE_MOCK_LOG}"
-  grep -F "env pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} env --shell bash" "${MISE_MOCK_LOG}"
+  grep -F "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} disabled= install" "${MISE_MOCK_LOG}"
+  grep -F "env pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} disabled= env --shell bash" "${MISE_MOCK_LOG}"
   grep -F "export TEST_ENV=ok" "${BUILDKITE_ENV_FILE}"
   grep -F "export PATH=${MISE_DATA_DIR}/bin:\$PATH" "${BUILDKITE_ENV_FILE}"
   grep -F "export PATH=\"${MISE_DATA_DIR}/installs/go/1.0.0/bin:\$PATH\"" "${BUILDKITE_ENV_FILE}"
@@ -251,8 +256,8 @@ MOCK
   run bash hooks/pre-command
 
   [ "${status}" -eq 0 ]
-  grep -F "install pwd=${subdir} install" "${MISE_MOCK_LOG}"
-  grep -F "env pwd=${subdir} env --shell bash" "${MISE_MOCK_LOG}"
+  grep -F "install pwd=${subdir} disabled= install" "${MISE_MOCK_LOG}"
+  grep -F "env pwd=${subdir} disabled= env --shell bash" "${MISE_MOCK_LOG}"
 }
 
 @test "uses local plugin dir config fallback" {
@@ -264,8 +269,32 @@ MOCK
   run bash hooks/pre-command
 
   [ "${status}" -eq 0 ]
-  grep -F "install pwd=${subdir} install" "${MISE_MOCK_LOG}"
-  grep -F "env pwd=${subdir} env --shell bash" "${MISE_MOCK_LOG}"
+  grep -F "install pwd=${subdir} disabled= install" "${MISE_MOCK_LOG}"
+  grep -F "env pwd=${subdir} disabled= env --shell bash" "${MISE_MOCK_LOG}"
+}
+
+@test "exports disable_tools as MISE_DISABLE_TOOLS for mise and commands" {
+  printf 'node 24.0.0\npython 3.13.0\ngo 1.0.0\n' > "${BUILDKITE_BUILD_CHECKOUT_PATH}/.tool-versions"
+  export BUILDKITE_PLUGIN_MISE_DISABLE_TOOLS_0="node"
+  export BUILDKITE_PLUGIN_MISE_DISABLE_TOOLS_1="python"
+
+  run bash hooks/pre-command
+
+  [ "${status}" -eq 0 ]
+  grep -Fx "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} disabled=node,python install" "${MISE_MOCK_LOG}"
+  grep -Fx "env pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} disabled=node,python env --shell bash" "${MISE_MOCK_LOG}"
+  grep -Fx "export MISE_DISABLE_TOOLS=node\\,python" "${BUILDKITE_ENV_FILE}"
+}
+
+@test "uses local plugin disable_tools config fallback" {
+  printf 'node 24.0.0\ngo 1.0.0\n' > "${BUILDKITE_BUILD_CHECKOUT_PATH}/.tool-versions"
+  export BUILDKITE_PLUGIN__DISABLE_TOOLS_0="node"
+
+  run bash hooks/pre-command
+
+  [ "${status}" -eq 0 ]
+  grep -Fx "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} disabled=node install" "${MISE_MOCK_LOG}"
+  grep -Fx "export MISE_DISABLE_TOOLS=node" "${BUILDKITE_ENV_FILE}"
 }
 
 @test "passes install_args to mise install" {
@@ -276,8 +305,8 @@ MOCK
 
   [ "${status}" -eq 0 ]
   grep -F "Running mise install with args: node pnpm@10" <<< "${output}"
-  grep -Fx "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install node pnpm@10" "${MISE_MOCK_LOG}"
-  grep -Fx "env pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} env --shell bash" "${MISE_MOCK_LOG}"
+  grep -Fx "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} disabled= install node pnpm@10" "${MISE_MOCK_LOG}"
+  grep -Fx "env pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} disabled= env --shell bash" "${MISE_MOCK_LOG}"
 }
 
 @test "installs system packages before mise install when enabled" {
@@ -289,10 +318,10 @@ MOCK
   [ "${status}" -eq 0 ]
   grep -F "Running mise system install --yes" <<< "${output}"
   grep -Fx "system pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} experimental=1 system install --yes" "${MISE_MOCK_LOG}"
-  grep -Fx "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install" "${MISE_MOCK_LOG}"
+  grep -Fx "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} disabled= install" "${MISE_MOCK_LOG}"
 
   system_line="$(grep -n -F "system pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} experimental=1 system install --yes" "${MISE_MOCK_LOG}" | cut -d: -f1)"
-  install_line="$(grep -n -F "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install" "${MISE_MOCK_LOG}" | cut -d: -f1)"
+  install_line="$(grep -n -F "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} disabled= install" "${MISE_MOCK_LOG}" | cut -d: -f1)"
 
   [ "${system_line}" -lt "${install_line}" ]
 }
@@ -314,8 +343,8 @@ MOCK
   run bash hooks/pre-command
 
   [ "${status}" -eq 0 ]
-  grep -Fx "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install node pnpm" "${MISE_MOCK_LOG}"
-  grep -Fx "env pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} env --shell bash" "${MISE_MOCK_LOG}"
+  grep -Fx "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} disabled= install node pnpm" "${MISE_MOCK_LOG}"
+  grep -Fx "env pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} disabled= env --shell bash" "${MISE_MOCK_LOG}"
 }
 
 @test "uses cache-dir config when MISE_DATA_DIR is unset" {
