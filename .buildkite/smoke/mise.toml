@@ -3,7 +3,7 @@ disable_tools = ["shellcheck"]
 legacy_version_file = false
 
 [tools]
-go = "1.26.3"
+go = "1.27.1"
 
 [system.packages]
 "apt:figlet" = "latest"
