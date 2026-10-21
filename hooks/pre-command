@@ -201,7 +201,19 @@ installed_version() {
     return
   fi
 
-  printf '%s\n' "$output" | awk '{print $2}' | tr -d 'v'
+  # Current mise prints the version first; older releases prefixed it with "mise".
+  printf '%s\n' "$output" | awk '
+    {
+      for (i = 1; i <= NF; i++) {
+        token = $i
+        sub(/^v/, "", token)
+        if (token ~ /^[0-9]+(\.[0-9]+)+([-+][0-9A-Za-z.-]+)*$/) {
+          print token
+          exit
+        }
+      }
+    }
+  '
 }
 
 install_mise() {

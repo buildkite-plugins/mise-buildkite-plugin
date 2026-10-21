@@ -17,8 +17,8 @@ This plugin is intentionally small:
 steps:
   - label: ":wrench: Test"
     plugins:
-      - mise#v1.1.4:
-          version: 2026.2.11
+      - mise#v1.1.5:
+          version: 2026.10.17
     command: go test ./...
 ```
 
@@ -28,7 +28,7 @@ steps:
 steps:
   - label: ":wrench: Test backend"
     plugins:
-      - mise#v1.1.4:
+      - mise#v1.1.5:
           dir: backend
     command: go test ./...
 ```
@@ -42,7 +42,7 @@ arguments directly to `mise install`:
 steps:
   - label: ":react: Frontend"
     plugins:
-      - mise#v1.1.4:
+      - mise#v1.1.5:
           install_args: node pnpm
     command: pnpm test
 ```
@@ -70,7 +70,7 @@ system packages can mutate the agent host or container.
 steps:
   - label: ":wrench: Test"
     plugins:
-      - mise#v1.1.4:
+      - mise#v1.1.5:
           install_system_packages: true
     command: go test ./...
 ```
@@ -88,7 +88,7 @@ cache: ".buildkite/cache-volume"
 steps:
   - label: ":wrench: Test"
     plugins:
-      - mise#v1.1.4: ~
+      - mise#v1.1.5: ~
     command: go test ./...
 ```
 
@@ -107,11 +107,15 @@ and the tool backend. Use separate data directories if you need isolation.
 
 ## Configuration
 
-- `version` (default: `latest`): mise version to install.
+- `version` (default: `latest`): mise version to install. `latest` is resolved on each hook invocation; a cached binary is replaced when its version differs. Explicit pins are honored, including older versions.
 - `dir` (default: checkout directory): directory where `mise install` and `mise env` run.
 - `cache-dir` (default: unset): directory to use for `MISE_DATA_DIR`. This is mainly useful on self-hosted agents with a persistent disk.
 - `install_args` (default: unset): arguments passed directly to `mise install`, such as `node pnpm` or `node@24 pnpm@10`. These are install-only arguments; command execution still uses the environment exported from the repository mise config.
 - `install_system_packages` (default: `false`): run `mise system install --yes` before `mise install`.
+
+The agent’s host `curl` and CA trust must be kept up to date for bootstrap downloads.
+The plugin does not upgrade explicitly pinned mise versions or audit tools selected
+by your repository’s mise configuration.
 
 ## Repo Requirements
 
