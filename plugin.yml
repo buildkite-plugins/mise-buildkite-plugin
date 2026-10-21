@@ -10,7 +10,7 @@ configuration:
     version:
       type: string
       default: latest
-      description: Version of mise to install (for example, 2026.2.11).
+      description: Version of mise to install (for example, 2026.10.17).
     dir:
       type: string
       description: Directory where `mise install` and `mise env` run. Defaults to the checkout directory.

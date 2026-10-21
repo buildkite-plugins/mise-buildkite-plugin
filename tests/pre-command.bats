@@ -24,6 +24,10 @@ setup() {
   unset BUILDKITE_COMPUTE_TYPE
   unset MISE_INSTALL_BARRIER_COUNT
   unset MISE_INSTALL_BARRIER_DIR
+  unset MISE_MOCK_VERSION_OUTPUT
+  unset MISE_INSTALL_VERSION_OUTPUT
+  unset MISE_MOCK_LATEST_VERSION
+  unset MISE_MOCK_CURL_LOG
   unset MISE_MOCK_FAIL_INSTALL
   unset MISE_HOSTED_CACHE_VOLUME_ROOT
 }
@@ -42,7 +46,7 @@ cmd="${1:-}"
 
 case "${cmd}" in
   --version|version)
-    echo "mise v1.0.0"
+    echo "${MISE_MOCK_VERSION_OUTPUT:-mise v1.0.0}"
     ;;
   install)
     if [ "${MISE_MOCK_FAIL_INSTALL:-0}" = "1" ]; then
@@ -93,7 +97,13 @@ setup_install_mocks() {
   cat > "${TEST_TMPDIR}/mock-bin/curl" <<'MOCK'
 #!/usr/bin/env bash
 set -euo pipefail
-printf 'mock archive'
+if [ -n "${MISE_MOCK_CURL_LOG:-}" ]; then
+  printf '%s\n' "$*" >> "$MISE_MOCK_CURL_LOG"
+fi
+case "${*: -1}" in
+  https://mise.jdx.dev/VERSION) printf '%s\n' "${MISE_MOCK_LATEST_VERSION:-1.0.0}" ;;
+  *) printf 'mock archive' ;;
+esac
 MOCK
 
   cat > "${TEST_TMPDIR}/mock-bin/tar" <<'MOCK'
@@ -140,7 +150,7 @@ set -euo pipefail
 
 case "${1:-}" in
   --version|version)
-    echo "mise v1.0.0"
+    echo "${MISE_INSTALL_VERSION_OUTPUT:-mise v1.0.0}"
     ;;
   install)
     ;;
@@ -464,4 +474,64 @@ MOCK
 
   [ "${status}" -eq 0 ]
   grep -F "Downloading mise v1.0.0 for linux-x64-musl" <<< "${output}"
+}
+
+@test "reuses cached mise with current version-first output" {
+  printf '[tools]\n' > "${BUILDKITE_BUILD_CHECKOUT_PATH}/mise.toml"
+  export BUILDKITE_PLUGIN_MISE_VERSION="v2026.10.17"
+  export MISE_MOCK_VERSION_OUTPUT="2026.10.17 macos-arm64 (2026-10-20)"
+
+  run bash hooks/pre-command
+
+  [ "${status}" -eq 0 ]
+  [[ "${output}" != *"Downloading mise"* ]]
+  grep -F "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install" "${MISE_MOCK_LOG}"
+}
+
+@test "default latest replaces an older cache then reuses the selected release" {
+  printf '[tools]\n' > "${BUILDKITE_BUILD_CHECKOUT_PATH}/mise.toml"
+  unset BUILDKITE_PLUGIN_MISE_VERSION
+  export MISE_MOCK_VERSION_OUTPUT="2026.10.15 linux-x64 (2026-10-18)"
+  export MISE_MOCK_LATEST_VERSION="2026.10.17"
+  export MISE_INSTALL_VERSION_OUTPUT="2026.10.17 linux-x64 (2026-10-20)"
+  export MISE_MOCK_CURL_LOG="${TEST_TMPDIR}/curl.log"
+  setup_install_mocks
+
+  run bash hooks/pre-command
+
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *"Downloading mise v2026.10.17 for "* ]]
+
+  run bash hooks/pre-command
+
+  [ "${status}" -eq 0 ]
+  [[ "${output}" != *"Downloading mise"* ]]
+  [ "$(grep -c 'releases/download/v2026.10.17/' "${MISE_MOCK_CURL_LOG}")" -eq 1 ]
+  [ "$(grep -c 'https://mise.jdx.dev/VERSION' "${MISE_MOCK_CURL_LOG}")" -eq 2 ]
+}
+
+@test "retains an explicitly pinned older cached version" {
+  printf '[tools]\n' > "${BUILDKITE_BUILD_CHECKOUT_PATH}/mise.toml"
+  export BUILDKITE_PLUGIN_MISE_VERSION="2026.10.15"
+  export MISE_MOCK_VERSION_OUTPUT="2026.10.15 linux-x64 (2026-10-18)"
+  setup_install_mocks
+  export MISE_MOCK_CURL_LOG="${TEST_TMPDIR}/curl.log"
+
+  run bash hooks/pre-command
+
+  [ "${status}" -eq 0 ]
+  [[ "${output}" != *"Downloading mise"* ]]
+  [ ! -e "${MISE_MOCK_CURL_LOG}" ]
+}
+
+
+@test "preserves version suffixes when reusing an explicit pin" {
+  printf '[tools]\n' > "${BUILDKITE_BUILD_CHECKOUT_PATH}/mise.toml"
+  export BUILDKITE_PLUGIN_MISE_VERSION="2026.10.17-rc.1"
+  export MISE_MOCK_VERSION_OUTPUT="mise v2026.10.17-rc.1"
+
+  run bash hooks/pre-command
+
+  [ "${status}" -eq 0 ]
+  [[ "${output}" != *"Downloading mise"* ]]
 }
