@@ -354,9 +354,9 @@ main() {
   if [ -n "$install_args_raw" ]; then
     read -r -a install_args <<< "$install_args_raw"
     echo "Running mise install with args: ${install_args[*]}"
-    run_with_expanded_group_on_failure run_mise install "${install_args[@]}"
+    run_with_expanded_group_on_failure run_mise install --quiet "${install_args[@]}"
   else
-    run_with_expanded_group_on_failure run_mise install
+    run_with_expanded_group_on_failure run_mise install --quiet
   fi
 
   if [ -z "${BUILDKITE_ENV_FILE:-}" ]; then
