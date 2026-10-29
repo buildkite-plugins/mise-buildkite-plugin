@@ -5,7 +5,7 @@ Install [mise](https://mise.jdx.dev/), run `mise install`, and export the tool e
 This plugin is intentionally small:
 
 - `mise` is installed if missing or at the wrong version
-- `mise install` always runs
+- `mise install --quiet` always runs
 - `mise system install --yes` can run before `mise install` when explicitly enabled
 - the plugin-managed `mise` binary is added to the command environment `PATH`
 - `mise env --shell bash` is sourced in the hook and appended to `$BUILDKITE_ENV_FILE`

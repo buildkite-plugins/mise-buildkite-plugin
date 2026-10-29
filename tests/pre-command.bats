@@ -188,7 +188,7 @@ MOCK
 
   [ "${status}" -eq 0 ]
   grep -F "~~~ :mise: Setup mise" <<< "${output}"
-  grep -F "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install" "${MISE_MOCK_LOG}"
+  grep -F "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install --quiet" "${MISE_MOCK_LOG}"
   grep -F "env pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} env --shell bash" "${MISE_MOCK_LOG}"
   grep -F "export TEST_ENV=ok" "${BUILDKITE_ENV_FILE}"
   grep -F "export PATH=${MISE_DATA_DIR}/bin:\$PATH" "${BUILDKITE_ENV_FILE}"
@@ -261,7 +261,7 @@ MOCK
   run bash hooks/pre-command
 
   [ "${status}" -eq 0 ]
-  grep -F "install pwd=${subdir} install" "${MISE_MOCK_LOG}"
+  grep -F "install pwd=${subdir} install --quiet" "${MISE_MOCK_LOG}"
   grep -F "env pwd=${subdir} env --shell bash" "${MISE_MOCK_LOG}"
 }
 
@@ -274,7 +274,7 @@ MOCK
   run bash hooks/pre-command
 
   [ "${status}" -eq 0 ]
-  grep -F "install pwd=${subdir} install" "${MISE_MOCK_LOG}"
+  grep -F "install pwd=${subdir} install --quiet" "${MISE_MOCK_LOG}"
   grep -F "env pwd=${subdir} env --shell bash" "${MISE_MOCK_LOG}"
 }
 
@@ -286,7 +286,7 @@ MOCK
 
   [ "${status}" -eq 0 ]
   grep -F "Running mise install with args: node pnpm@10" <<< "${output}"
-  grep -Fx "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install node pnpm@10" "${MISE_MOCK_LOG}"
+  grep -Fx "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install --quiet node pnpm@10" "${MISE_MOCK_LOG}"
   grep -Fx "env pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} env --shell bash" "${MISE_MOCK_LOG}"
 }
 
@@ -299,10 +299,10 @@ MOCK
   [ "${status}" -eq 0 ]
   grep -F "Running mise system install --yes" <<< "${output}"
   grep -Fx "system pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} experimental=1 system install --yes" "${MISE_MOCK_LOG}"
-  grep -Fx "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install" "${MISE_MOCK_LOG}"
+  grep -Fx "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install --quiet" "${MISE_MOCK_LOG}"
 
   system_line="$(grep -n -F "system pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} experimental=1 system install --yes" "${MISE_MOCK_LOG}" | cut -d: -f1)"
-  install_line="$(grep -n -F "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install" "${MISE_MOCK_LOG}" | cut -d: -f1)"
+  install_line="$(grep -n -F "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install --quiet" "${MISE_MOCK_LOG}" | cut -d: -f1)"
 
   [ "${system_line}" -lt "${install_line}" ]
 }
@@ -324,7 +324,7 @@ MOCK
   run bash hooks/pre-command
 
   [ "${status}" -eq 0 ]
-  grep -Fx "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install node pnpm" "${MISE_MOCK_LOG}"
+  grep -Fx "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install --quiet node pnpm" "${MISE_MOCK_LOG}"
   grep -Fx "env pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} env --shell bash" "${MISE_MOCK_LOG}"
 }
 
@@ -485,7 +485,7 @@ MOCK
 
   [ "${status}" -eq 0 ]
   [[ "${output}" != *"Downloading mise"* ]]
-  grep -F "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install" "${MISE_MOCK_LOG}"
+  grep -F "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install --quiet" "${MISE_MOCK_LOG}"
 }
 
 @test "default latest replaces an older cache then reuses the selected release" {
