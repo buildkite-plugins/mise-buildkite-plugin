@@ -15,6 +15,7 @@ setup() {
   export MISE_MOCK_LOG="${TEST_TMPDIR}/mise.log"
   : > "${MISE_MOCK_LOG}"
 
+  unset BUILDKITE_PLUGIN_MISE_CACHE
   unset BUILDKITE_PLUGIN_MISE_CACHE_DIR
   unset BUILDKITE_PLUGIN_MISE_DIR
   unset BUILDKITE_PLUGIN_MISE_INSTALL_ARGS
@@ -534,4 +535,72 @@ MOCK
 
   [ "${status}" -eq 0 ]
   [[ "${output}" != *"Downloading mise"* ]]
+}
+
+setup_cache_mock() {
+  export CACHE_MOCK_LOG="${TEST_TMPDIR}/cache.log"
+  : > "${CACHE_MOCK_LOG}"
+
+  mkdir -p "${TEST_TMPDIR}/mock-bin"
+  export PATH="${TEST_TMPDIR}/mock-bin:${PATH}"
+
+  # Restore copies a cached mise binary into the data dir, as a real cache hit would.
+  cat > "${TEST_TMPDIR}/mock-bin/buildkite-agent" <<'MOCK'
+#!/usr/bin/env bash
+set -euo pipefail
+
+printf '%s %s MISE_VERSION=%s pwd=%s\n' "$1" "$2" "${MISE_VERSION:-}" "${PWD}" >> "${CACHE_MOCK_LOG:?}"
+cp "$4" "${TEST_TMPDIR}/cache-config.$2.yml"
+if [ "$2" = restore ] && [ -n "${CACHE_MOCK_RESTORE_DIR:-}" ]; then
+  mkdir -p "${CACHE_MOCK_RESTORE_DIR}/bin"
+  cp "${TEST_TMPDIR}/cached-mise" "${CACHE_MOCK_RESTORE_DIR}/bin/mise"
+fi
+MOCK
+  chmod +x "${TEST_TMPDIR}/mock-bin/buildkite-agent"
+}
+
+@test "cache restores mise keyed by the resolved version before installing" {
+  printf '[tools]\n' > "${BUILDKITE_BUILD_CHECKOUT_PATH}/mise.toml"
+  printf 'lock\n' > "${BUILDKITE_BUILD_CHECKOUT_PATH}/mise.lock"
+  unset BUILDKITE_PLUGIN_MISE_VERSION
+  export BUILDKITE_PLUGIN_MISE_CACHE="true"
+  export MISE_MOCK_LATEST_VERSION="2026.11.4"
+  export MISE_MOCK_VERSION_OUTPUT="2026.11.4 linux-x64 (2026-11-05)"
+  cp "${MISE_DATA_DIR}/bin/mise" "${TEST_TMPDIR}/cached-mise"
+  rm -f "${MISE_DATA_DIR}/bin/mise"
+  export CACHE_MOCK_RESTORE_DIR="${MISE_DATA_DIR}"
+  setup_install_mocks
+  setup_cache_mock
+
+  run bash hooks/pre-command
+
+  [ "${status}" -eq 0 ]
+  [[ "${output}" != *"Downloading mise"* ]]
+  [ "$(cat "${CACHE_MOCK_LOG}")" = "cache restore MISE_VERSION=2026.11.4 pwd=${BUILDKITE_BUILD_CHECKOUT_PATH}
+cache save MISE_VERSION=2026.11.4 pwd=${BUILDKITE_BUILD_CHECKOUT_PATH}" ]
+  grep -Fx '      - { env: MISE_VERSION, fallback_limit: true }' "${TEST_TMPDIR}/cache-config.restore.yml"
+  grep -Fx '      - { checksum: ["mise.toml","mise.lock"] }' "${TEST_TMPDIR}/cache-config.restore.yml"
+  grep -Fx "      - '${MISE_DATA_DIR}'" "${TEST_TMPDIR}/cache-config.restore.yml"
+  cmp "${TEST_TMPDIR}/cache-config.restore.yml" "${TEST_TMPDIR}/cache-config.save.yml"
+  grep -F "install pwd=${BUILDKITE_BUILD_CHECKOUT_PATH} install --quiet" "${MISE_MOCK_LOG}"
+}
+
+@test "cache does not use the shared hosted cache volume" {
+  hosted_cache_root="${TEST_TMPDIR}/hosted-cache"
+  mkdir -p "${hosted_cache_root}"
+  unset MISE_DATA_DIR
+  export HOME="${TEST_TMPDIR}/home"
+  unset XDG_DATA_HOME
+  export BUILDKITE_COMPUTE_TYPE="hosted"
+  export MISE_HOSTED_CACHE_VOLUME_ROOT="${hosted_cache_root}"
+  export BUILDKITE_PLUGIN_MISE_CACHE="true"
+  write_mise_mock "${HOME}/.local/share/mise"
+  printf 'go 1.0.0\n' > "${BUILDKITE_BUILD_CHECKOUT_PATH}/.tool-versions"
+  setup_cache_mock
+
+  run bash hooks/pre-command
+
+  [ "${status}" -eq 0 ]
+  grep -F "Using mise data dir: ${HOME}/.local/share/mise (HOME fallback)" <<< "${output}"
+  grep -Fx "      - '${HOME}/.local/share/mise'" "${TEST_TMPDIR}/cache-config.restore.yml"
 }

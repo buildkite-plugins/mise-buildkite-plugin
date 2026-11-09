@@ -17,7 +17,7 @@ This plugin is intentionally small:
 steps:
   - label: ":wrench: Test"
     plugins:
-      - mise#v1.1.5:
+      - mise#v1.1.6:
           version: 2026.10.17
     command: go test ./...
 ```
@@ -28,7 +28,7 @@ steps:
 steps:
   - label: ":wrench: Test backend"
     plugins:
-      - mise#v1.1.5:
+      - mise#v1.1.6:
           dir: backend
     command: go test ./...
 ```
@@ -42,7 +42,7 @@ arguments directly to `mise install`:
 steps:
   - label: ":react: Frontend"
     plugins:
-      - mise#v1.1.5:
+      - mise#v1.1.6:
           install_args: node pnpm
     command: pnpm test
 ```
@@ -70,7 +70,7 @@ system packages can mutate the agent host or container.
 steps:
   - label: ":wrench: Test"
     plugins:
-      - mise#v1.1.5:
+      - mise#v1.1.6:
           install_system_packages: true
     command: go test ./...
 ```
@@ -88,11 +88,46 @@ cache: ".buildkite/cache-volume"
 steps:
   - label: ":wrench: Test"
     plugins:
-      - mise#v1.1.5: ~
+      - mise#v1.1.6: ~
     command: go test ./...
 ```
 
 When running on Buildkite hosted agents, the plugin automatically uses `/cache/bkcache/mise` as `MISE_DATA_DIR` if a cache volume is attached. Buildkite only mounts that volume when the pipeline or step defines `cache`, so you still need to request one in `pipeline.yml`.
+
+## Buildkite Cache
+
+```yml
+steps:
+  - label: ":wrench: Test"
+    plugins:
+      - mise#v1.1.6:
+          cache: true
+    command: go test ./...
+```
+
+With `cache: true`, the plugin saves and restores the mise data dir with
+[Buildkite Cache](https://buildkite.com/docs/pipelines/configure/cache). It
+generates its own cache config, so the repository doesn't need a
+`.buildkite/cache.yml`. The cache key is made of:
+
+- the mise platform, such as `linux-x64` or `linux-x64-musl`
+- the mise version the plugin installs, including the version `latest` resolves to
+- a checksum of whichever of `mise.toml`, `.mise.toml`, `.tool-versions`, `mise.lock` and `.mise.lock` exist in `dir`
+
+The mise version is the fallback limit. A new mise version starts with an empty
+cache, while a config or lockfile change restores the newest cache for the same
+mise version, and `mise install` adds only what changed.
+
+The hook restores the cache before checking the mise binary, so a warm cache
+needs no download from GitHub. It saves the cache after `mise install`. Saving
+is skipped when the exact key already exists, and cache misses or errors don't
+fail the build. Use [cache registry policies](https://buildkite.com/docs/pipelines/configure/cache#manage-cache-registries-configure-a-cache-policy)
+to control which builds can save entries that other builds restore.
+
+Requirements and caveats:
+
+- Jobs must run on clustered agents with Buildkite agent v4.0.3 or later. Self-hosted agents also need `BUILDKITE_AGENT_CACHE_STORE_URL`.
+- A restore replaces the whole data dir. The hosted agent cache volume is shared between jobs, so `cache: true` doesn't use it. Don't point `MISE_DATA_DIR` or `cache-dir` at a directory that concurrent jobs share, such as when several agents on one host run as the same user.
 
 ## Concurrent Jobs
 
@@ -109,6 +144,7 @@ and the tool backend. Use separate data directories if you need isolation.
 
 - `version` (default: `latest`): mise version to install. `latest` is resolved on each hook invocation; a cached binary is replaced when its version differs. Explicit pins are honored, including older versions.
 - `dir` (default: checkout directory): directory where `mise install` and `mise env` run.
+- `cache` (default: `false`): save and restore the mise data dir with Buildkite Cache. See [Buildkite Cache](#buildkite-cache).
 - `cache-dir` (default: unset): directory to use for `MISE_DATA_DIR`. This is mainly useful on self-hosted agents with a persistent disk.
 - `install_args` (default: unset): arguments passed directly to `mise install`, such as `node pnpm` or `node@24 pnpm@10`. These are install-only arguments; command execution still uses the environment exported from the repository mise config.
 - `install_system_packages` (default: `false`): run `mise system install --yes` before `mise install`.

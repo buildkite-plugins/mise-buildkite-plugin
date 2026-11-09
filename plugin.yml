@@ -14,6 +14,10 @@ configuration:
     dir:
       type: string
       description: Directory where `mise install` and `mise env` run. Defaults to the checkout directory.
+    cache:
+      type: boolean
+      default: false
+      description: Save and restore the mise data dir with Buildkite Cache, keyed by the mise version and repository mise config. Requires clustered agents on Buildkite agent v4.0.3 or later.
     cache-dir:
       type: string
       description: Directory to use for `MISE_DATA_DIR`. Useful for persistent caches on self-hosted agents.
